@@ -1,4 +1,40 @@
----
-layout: home
-# Index page
----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renan A Fonseca - Blog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1>Renan A Fonseca</h1>
+                <p>some random thoughts</p>
+            </div>
+            <button id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+        </div>
+    </header>
+
+    <main>
+        <section id="filters">
+            <div class="tag-filters">
+                <button class="tag-filter active" data-tag="all">All Posts</button>
+                <div id="tag-buttons"></div>
+            </div>
+        </section>
+
+        <section id="posts">
+            <!-- Posts will be loaded here by JavaScript -->
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Renan Alves Fonseca</p>
+    </footer>
+
+    <script src="posts.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
