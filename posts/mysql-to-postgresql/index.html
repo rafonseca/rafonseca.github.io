@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero Downtime MySQL to PostgreSQL migration - Renan A Fonseca</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        .post-header {
+            margin-bottom: 2rem;
+        }
+        .back-link {
+            color: var(--link-color);
+            text-decoration: none;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+        .back-link:hover {
+            color: var(--link-hover);
+        }
+        .post-content pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        .post-content code {
+            font-family: 'Courier New', monospace;
+            background: var(--inline-code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+        }
+        .post-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .post-content ul {
+            padding-left: 2rem;
+            margin: 1rem 0;
+        }
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div>
+                <h1>Renan A Fonseca</h1>
+                <p>some random thoughts</p>
+            </div>
+            <button id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+        </div>
+    </header>
+
+    <main class="post-content">
+        <a href="../../" class="back-link">← Back to posts</a>
+        
+        <article>
+            <header class="post-header">
+                <h1>Zero Downtime MySQL to PostgreSQL migration</h1>
+                <div class="post-tags">
+                    <span class="post-tag">devops</span>
+                    <span class="post-tag">postgresql</span>
+                </div>
+            </header>
+
+            <div class="post-body">
+                <p>In my first year working at Woovit as a back-end developer, I had a hard time. We had MySQL, ElasticSearch and DynamoDB. This stack came up during a growing stage of the company, but now there were less developers than DB flavours. Letting aside the cognitive overhead of working with 3 differents DBs (not counting Redis), the objective problems we faced were always related to data syncing across the DBs. When I've realized that we could replace 3 different DBs by PostgreSQL, while keeping all product features, this migration became a personnal goal.</p>
+
+                <p>After a few months trying to convince the team that this move was a real win, they agreed to make the migration. For several reasons, we decided that we would migrate with zero downtime. In this article I will focus on the MySQL to PostgreSQL migration of a django app since it is the most delicate part of this whole process. Moving the existing features from ElasticSearch and DynamoDB to PostgreSQL is an interesting topic about which I will hopefully write in another post.</p>
+
+                <h1>Zero Downtime Migration of a Django App</h1>
+
+                <p>To my surprise, I've not found a solution to easily migrate a django app from MySQL to PostgreSQL with no downtime. Basically one needs:</p>
+                
+                <ul>
+                    <li>MySQL to PostgreSQL replication working during the whole process</li>
+                    <li>old MySQL django app version working until B</li>
+                    <li>new PostgreSQL django app version working from time A, where A&lt;B</li>
+                    <li>a load balancer to distribute requests so that both version can work at the same time</li>
+                </ul>
+
+                <p>Additional steps:</p>
+                <ul>
+                    <li>During the time between A and B, we have actually two master nodes. To avoid the most common source of data inconsistency, we offset all serial PKs in the PostgreSQL instance by a sufficient large number.</li>
+                    <li>Django make a great job by abstracting the underlying DB implementation. Almost no modifications were needed in the python code, but there are some differences that we need to take into account in the replication process. For example, Django uses a <code>big int</code> to represent duration in MySQL, while it uses a proper <code>interval</code> field in PostgreSQL. Actually, this step became the most complex part of this project, since I found no tool that would perform the replication with an additional transformation for some fields.</li>
+                </ul>
+
+                <h1>Available tools</h1>
+                
+                <h2>AWS DMS solution</h2>
+                <p>I will not enter in details here. I just want to mention that giving it a try was a waste of time, and probably you want to skip it also.</p>
+
+                <h2><a href="https://pgloader.io/">pgloader</a></h2>
+                <p>This is a tool made by the author of the excellent book <a href="https://theartofpostgresql.com/">The Art of PostgreSQL</a>. Although it does not replicate from MySQL to PostgreSQL, it does support data transformation. The tool is made in Common Lisp and the user specifies data transformation in Common Lisp. I was impressed by how easy the language allows for dynamical extensions. It was my first experience with Common Lisp and it was quite easy to implement the required transformation. The tool uses PostgreSQL <code>COPY</code> commands to load the data into PostgreSQL and it is quite fast. If you don't need online replication, this is the way to go.</p>
+                
+                <p>I've used this tool in a first step in order to have a fully working django app based on PostgreSQL. In this step, I've found many data inconsistencies in our source DB that PostgreSQL would not tolerate.</p>
+
+                <h2><a href="https://github.com/the4thdoctor/pg_chameleon">PG chameleon</a></h2>
+                <p>PG chameleon is a python-PL/SQL project that implements logical replication from MySQL to PostgreSQL. The python part fetches data from MySQL and send as JSON records to PostgreSQL. Then the PL/SQL part applies the data modification statements inside PostgreSQL.</p>
+                
+                <p>It solved 95% of our problem. We still needed to transform some <code>big int</code> fields in MySQL to <code>interval</code> in PostgreSQL.</p>
+
+                <h2><a href="https://github.com/rafonseca/pg_chameleon/tree/django-migration">PG chameleon hackish fork</a></h2>
+                <p>Inspired by PG loader, I've extended PG chameleon so that we can define transformations for some specific fields. In this fork, I've only implemented the django duration field required transformation. It does not have the same extensibility as PG loader, so we need to modify the code if a different transformation is needed. I should do a proper PR with extra docs one day.</p>
+
+                <h1>Result</h1>
+                <p>After a couple of weeks of testing we were ready to the actual migration. It was a susprisingly smooth deploy. 2 hours from the deploy we were still waiting for the first bug. Only then we realized that it was a real success. I cannot say that it was 100% because a few weeks later we found a minor bug in one of our TypeScript services (point for Django as a good ORM here).</p>
+
+                <p>When we had MySQL, I was always reluctant to implement features and business logic inside the DB. First, because MySQL did not provide enough resources. Then, I knew that keeping everything inside Django would make this eventual migration easier. After this point, I became confident in implementing things in the <del>DB side</del> PostgreSQL side. It was a turning point in my dev career. PostgreSQL quickly become my tool of choice instead of python.</p>
+            </div>
+        </article>
+    </main>
+
+    <footer>
+        <p>&copy; 2024-2025 Renan Alves Fonseca</p>
+    </footer>
+
+    <script>
+        // Theme management for individual posts
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.body.classList.add('dark-theme');
+                updateThemeIcon(true);
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+
+        function updateThemeIcon(isDark) {
+            const themeToggle = document.getElementById('theme-toggle');
+            themeToggle.textContent = isDark ? '☀️' : '🌙';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initTheme();
+            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        });
+    </script>
+</body>
+</html>
