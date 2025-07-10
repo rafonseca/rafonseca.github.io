@@ -1,0 +1,51 @@
+<p>This is the first post of a series about using SQL, and postgres of course, to solve <a href="https://projecteuler.net">Project Euler</a> problems. This started as an exercise to master advanced features of postgres/SQL. When I realized that some solutions were quite elegant, I decided to share them here. I've also setup github discussions in this blog so that you can give a feedback.</p>
+<h1><a href="https://projecteuler.net/problem=2">Problem 2</a></h1>
+<p>Fibonacci Series! This is a classic problem usually solved with a loop. Ops, we don't have loops in SQL, at least not explictly. More specifically, this loop is a <code>while</code> and not a <code>for</code> loop. The closest thing I've found is a recursive CTE. As explained in the <a href="https://www.postgresql.org/docs/current/queries-with.html">docs</a>, recursive CTEs are internally evaluated as an iteration.</p>
+<p>This solution use the most basic features of recursive CTEs. Let's not hurry. We have enough complexity to start with. It is easier to explain the syntax of a recursive CTE with an example:</p>
+<pre class="highlight"><code class="language-sql"><span class="source sql"><span class="keyword other DML sql">with</span> recursive t(n) <span class="keyword other alias sql">as</span> (
+    <span class="keyword other DML II sql">values</span>(<span class="constant numeric sql">1</span>) <span class="comment line double-dash sql"><span class="punctuation definition comment sql">--</span> initial value of t(n)
+</span>  <span class="keyword other DML sql">union</span> 
+    <span class="keyword other DML sql">select</span> n<span class="keyword operator math sql">+</span><span class="constant numeric sql">1</span> <span class="keyword other DML sql">from</span> t <span class="comment line double-dash sql"><span class="punctuation definition comment sql">--</span> iteration step
+</span>)
+<span class="keyword other DML sql">select</span> <span class="keyword operator star sql">*</span> <span class="keyword other DML sql">from</span> t <span class="keyword other DML sql">limit</span> <span class="constant numeric sql">5</span>;
+</span></code></pre><table><thead><tr><th>n</th></tr></thead><tbody>
+<tr><th>1</th></tr>
+<tr><th>2</th></tr>
+<tr><th>3</th></tr>
+<tr><th>4</th></tr>
+<tr><th>5</th></tr>
+</tbody></table>
+<p>The query above generates a incremental sequence starting from 1. It is an infinite sequence so if we do not put a limit the query will never end. The structure of the recursive CTE has two placeholders: the stuff before <code>union</code> and the stuff after <code>union</code>. They are respectively the <em>initial content</em> of the table and the <em>iteration step</em> by which the table grows. The rest follows as a standard CTE.</p>
+<h2>Generating a Fibonacci table</h2>
+<pre class="highlight"><code class="language-sql"><span class="source sql"><span class="keyword other DML sql">with</span> recursive fibonacci(previous_term, term) <span class="keyword other alias sql">as</span> (
+    <span class="keyword other DML II sql">values</span> (<span class="constant numeric sql">1</span>, <span class="constant numeric sql">1</span>)
+  <span class="keyword other DML sql">union</span>
+    <span class="keyword other DML sql">select</span> term                 <span class="keyword other alias sql">as</span> previous_term,
+           previous_term <span class="keyword operator math sql">+</span> term <span class="keyword other alias sql">as</span> term
+    <span class="keyword other DML sql">from</span>   fibonacci
+)
+<span class="keyword other DML sql">select</span> <span class="keyword operator star sql">*</span> <span class="keyword other DML sql">from</span> fibonacci <span class="keyword other DML sql">limit</span> <span class="constant numeric sql">10</span>;
+</span></code></pre><p>| previous_term | term |
+|---------------+------|
+|             1 |    1 |
+|             1 |    2 |
+|             2 |    3 |
+|             3 |    5 |
+|             5 |    8 |
+|             8 |   13 |
+|            13 |   21 |
+|            21 |   34 |
+|            34 |   55 |
+|            55 |   89 |</p>
+<h2>Final solution</h2>
+<p>This problem asks all even numbers in the series below a given threshold. Inside the recursive CTE we cut the series with a <code>where</code> term and we sum all even terms in the concluding <code>select</code> statement.</p>
+<pre class="highlight"><code class="language-sql"><span class="source sql"><span class="keyword other DML sql">with</span> recursive fibonacci(previous_term, term) <span class="keyword other alias sql">as</span> (
+    <span class="keyword other DML II sql">values</span> (<span class="constant numeric sql">1</span>, <span class="constant numeric sql">1</span>)
+  <span class="keyword other DML sql">union</span>
+    <span class="keyword other DML sql">select</span> term                 <span class="keyword other alias sql">as</span> previous_term,
+           previous_term <span class="keyword operator math sql">+</span> term <span class="keyword other alias sql">as</span> term
+    <span class="keyword other DML sql">from</span>   fibonacci
+    <span class="keyword other DML sql">where</span>  term <span class="keyword operator comparison sql">&lt;</span> <span class="constant numeric sql">4</span><span class="keyword operator star sql">*</span><span class="constant numeric sql">1000</span><span class="keyword operator star sql">*</span><span class="constant numeric sql">1000</span>
+)
+<span class="keyword other DML sql">select</span> <span class="support function aggregate sql">sum</span>(term) <span class="keyword other DML sql">from</span> fibonacci <span class="keyword other DML sql">where</span> mod(term,<span class="constant numeric sql">2</span>)<span class="keyword operator comparison sql">=</span><span class="constant numeric sql">0</span>
+</span></code></pre><p>Now that I'm used to the recursive CTE syntax, this solution seems quite elegant to my eyes. Well, maybe I write too much SQL...</p>
