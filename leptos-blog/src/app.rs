@@ -9,8 +9,6 @@ use leptos_router::{
 };
 use crate::{data::*, components::*};
 
-#[cfg(feature = "ssr")]
-use std::fs;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -244,34 +242,22 @@ pub async fn static_routes() -> Vec<String> {
 
 #[component]
 fn PostContent(slug: String) -> impl IntoView {
-    let html_content = Resource::new_blocking(
-        move || slug.clone(),
-        move |slug_param| async move {
-            #[cfg(feature = "ssr")]
-            {
-                let path = format!("posts-html/{}.html", slug_param);
-                match fs::read_to_string(&path) {
-                    Ok(content) => content,
-                    Err(_) => "Post content not found".to_string(),
+    let post = move || find_post_by_slug(&slug);
+    
+    view! {
+        {move || {
+            match post() {
+                Some(post) => {
+                    view! {
+                        <div inner_html=post.html_content></div>
+                    }.into_any()
+                },
+                None => {
+                    view! {
+                        <div>"Post content not found"</div>
+                    }.into_any()
                 }
             }
-            #[cfg(not(feature = "ssr"))]
-            {
-                let _ = slug_param; // Use the parameter to avoid warning
-                "Post content not available on client side".to_string()
-            }
-        },
-    );
-
-    view! {
-        <Suspense fallback=move || view! { <p>"Loading post content..."</p> }>
-            {move || {
-                html_content.get().map(|content| {
-                    view! {
-                        <div inner_html=content></div>
-                    }
-                })
-            }}
-        </Suspense>
+        }}
     }
 }
