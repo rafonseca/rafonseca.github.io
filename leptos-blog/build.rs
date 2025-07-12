@@ -80,6 +80,9 @@ fn process_markdown_file(content: &str, path: &Path) -> Option<ProcessedPost> {
         .map(|s| s.to_string())
         .collect();
     
+    // Remove first H1 header to avoid title duplication
+    let content_without_first_h1 = remove_first_h1(&result.content);
+    
     // Parse markdown content (everything after frontmatter)
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -87,7 +90,7 @@ fn process_markdown_file(content: &str, path: &Path) -> Option<ProcessedPost> {
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TASKLISTS);
     
-    let parser = Parser::new_ext(&result.content, options);
+    let parser = Parser::new_ext(&content_without_first_h1, options);
     let html = markdown_to_html_with_syntax_highlighting(parser);
     
     Some(ProcessedPost {
@@ -307,4 +310,20 @@ fn escape_for_rust_string(input: &str) -> String {
         .replace('\n', "\\n")   // Escape newlines
         .replace('\r', "\\r")   // Escape carriage returns
         .replace('\t', "\\t")   // Escape tabs
+}
+
+fn remove_first_h1(content: &str) -> String {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut result_lines = Vec::new();
+    let mut found_first_h1 = false;
+    
+    for line in lines {
+        if !found_first_h1 && line.trim_start().starts_with("# ") {
+            found_first_h1 = true;
+            continue; // Skip this line
+        }
+        result_lines.push(line);
+    }
+    
+    result_lines.join("\n")
 }
