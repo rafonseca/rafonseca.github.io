@@ -60,10 +60,10 @@ fn HomePage() -> impl IntoView {
     let all_tags = RwSignal::new(get_all_tags());
     let current_filter = RwSignal::new("all".to_string());
     
-    let filtered_posts = Memo::new(move |_| {
+    let filtered_posts = move || {
         let filter = current_filter.get();
         filter_posts_by_tag(&filter)
-    });
+    };
 
     let filter_posts = move |tag: String| {
         current_filter.set(tag);
@@ -110,7 +110,7 @@ fn HomePage() -> impl IntoView {
             
             <section id="posts">
                 {move || {
-                    let posts = filtered_posts.get();
+                    let posts = filtered_posts();
                     posts.into_iter().map(|post| {
                         let filter_posts = filter_posts.clone();
                         view! {
@@ -139,7 +139,7 @@ fn HomePage() -> impl IntoView {
                 }}
                 
                 <Show
-                    when=move || filtered_posts.get().is_empty()
+                    when=move || filtered_posts().is_empty()
                     fallback=|| ()
                 >
                     <p>"No posts found for the selected tag."</p>
@@ -162,7 +162,7 @@ struct PostParams {
 fn PostPage() -> impl IntoView {
     let params = use_params::<PostParams>();
     
-    let post = Memo::new(move |_| {
+    let post = move || {
         params.with(|params| {
             match params {
                 Ok(params) => {
@@ -174,7 +174,7 @@ fn PostPage() -> impl IntoView {
                 Err(_) => None,
             }
         })
-    });
+    };
 
     view! {
         <header>
@@ -191,7 +191,7 @@ fn PostPage() -> impl IntoView {
             <a href="/" class="back-link">"← Back to posts"</a>
             
             {move || {
-                match post.get() {
+                match post() {
                     Some(post) => {
                         view! {
                             <article>
