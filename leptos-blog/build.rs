@@ -153,12 +153,13 @@ fn generate_posts_module(posts: &[ProcessedPost], dest_path: &Path) {
         };
         
         module_content.push_str(&format!(
-            "        Post {{\n            title: \"{}\".to_string(),\n            slug: \"{}\".to_string(),\n            tags: vec![{}],\n            category: \"{}\".to_string(),\n            layout: \"{}\".to_string(),\n            html_content: \"\".to_string(),\n            original_filename: \"{}\".to_string(),\n            preview: \"{}\".to_string(),\n        }},\n",
+            "        Post {{\n            title: \"{}\".to_string(),\n            slug: \"{}\".to_string(),\n            tags: vec![{}],\n            category: \"{}\".to_string(),\n            layout: \"{}\".to_string(),\n            html_content: \"{}\".to_string(),\n            original_filename: \"{}\".to_string(),\n            preview: \"{}\".to_string(),\n        }},\n",
             post.title.replace("\"", "\\\""),
             post.slug,
             tags_str,
             post.category,
             post.layout,
+            escape_for_rust_string(&post.html_content),
             post.original_filename,
             preview.replace("\"", "\\\"").replace("\n", " ")
         ));
@@ -297,4 +298,13 @@ fn strip_html_tags(input: &str) -> String {
     }
     
     result.trim().to_string()
+}
+
+fn escape_for_rust_string(input: &str) -> String {
+    input
+        .replace('\\', "\\\\")  // Escape backslashes first
+        .replace('"', "\\\"")   // Escape quotes
+        .replace('\n', "\\n")   // Escape newlines
+        .replace('\r', "\\r")   // Escape carriage returns
+        .replace('\t', "\\t")   // Escape tabs
 }
