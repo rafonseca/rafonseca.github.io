@@ -1,8 +1,0 @@
-* euler project with aggregate function
-* migrating django project from mysql to postgres using pg_chamaleon
-* AWS replica bug
-* CI/Docker bug. call fo Nix
-* Python typing vs Unit Tests
-* SQL over python
-* bot detection in woovit
-* psql-migrate

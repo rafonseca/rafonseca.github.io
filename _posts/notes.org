@@ -1,3 +1,0 @@
-* dynamical programming using sql
-* generator in sql (sieve algorithm)
-* polynomials
